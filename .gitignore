@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+
+# Banco de Dados e Relatórios
+db/*.db
+*.json
+
+# Configurações sensíveis
+.env
