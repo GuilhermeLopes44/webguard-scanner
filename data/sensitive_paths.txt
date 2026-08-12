@@ -1,0 +1,18 @@
+# Sensitive path probes — same-origin only
+/.git/HEAD
+/.env
+/.env.local
+/backup.zip
+/backup.sql
+/db.sql
+/dump.sql
+/config.php.bak
+/web.config
+/phpinfo.php
+/server-status
+/.DS_Store
+/wp-config.php.bak
+/api/swagger.json
+/swagger.json
+/openapi.json
+/.svn/entries

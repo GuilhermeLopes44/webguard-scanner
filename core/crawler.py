@@ -1,77 +1,185 @@
-import requests
+from __future__ import annotations
+
+from collections import deque
+from urllib.parse import parse_qs, urljoin, urlparse, urlunparse
+
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse, parse_qs
+
+from core.config import AppConfig
+from core.http_client import RateLimitedSession
+from core.logging_setup import get_logger
+from core.models import CrawlResult, FormTarget, ParamTarget
+
+log = get_logger(__name__)
+
+
+def normalize_url(url: str) -> str:
+    parsed = urlparse(url.strip())
+    scheme = (parsed.scheme or "http").lower()
+    netloc = parsed.netloc.lower()
+    path = parsed.path or "/"
+    if path != "/" and path.endswith("/"):
+        path = path.rstrip("/")
+    # Drop fragment; keep query for param discovery, strip for visit identity separately
+    return urlunparse((scheme, netloc, path, "", parsed.query, ""))
+
+
+def url_without_query(url: str) -> str:
+    parsed = urlparse(url)
+    path = parsed.path or "/"
+    if path != "/" and path.endswith("/"):
+        path = path.rstrip("/")
+    return urlunparse((parsed.scheme, parsed.netloc.lower(), path, "", "", ""))
+
+
+def same_origin(base: str, other: str) -> bool:
+    a = urlparse(base)
+    b = urlparse(other)
+    return a.scheme == b.scheme and a.netloc.lower() == b.netloc.lower()
+
 
 class WebCrawler:
-    def __init__(self, base_url):
-        self.base_url = base_url
-        self.visited_urls = set()
-        self.urls_to_visit = [base_url]
-        self.session = requests.Session()
-        self.forms_found = []
-        self.params_found = [] # NOVA LISTA: Para URLs com parâmetros (?id=1)
+    def __init__(self, base_url: str, config: AppConfig, session: RateLimitedSession | None = None):
+        self.base_url = normalize_url(base_url.split("?")[0]) if "?" in base_url else normalize_url(base_url)
+        # Preserve original if it had useful path
+        parsed = urlparse(base_url)
+        self.base_url = urlunparse(
+            (
+                (parsed.scheme or "http").lower(),
+                parsed.netloc.lower(),
+                parsed.path or "/",
+                "",
+                "",
+                "",
+            )
+        )
+        self.config = config
+        host = urlparse(self.base_url).netloc.lower()
+        self.session = session or RateLimitedSession(config, allowed_hosts={host})
+        self.session.allow_host(host)
+        self.visited: set[str] = set()
+        self.forms: list[FormTarget] = []
+        self._form_keys: set[str] = set()
+        self.params: list[ParamTarget] = []
+        self._param_keys: set[str] = set()
+        self.seed_html = ""
+        self.seed_headers: dict[str, str] = {}
 
-    def is_same_domain(self, url):
-        base_domain = urlparse(self.base_url).netloc
-        target_domain = urlparse(url).netloc
-        return base_domain == target_domain
-
-    def extract_links_and_params(self, url):
-        """Extrai links e verifica se a própria URL possui parâmetros."""
-        try:
-            response = self.session.get(url, timeout=5)
-            self.visited_urls.add(url)
-            
-            if 'text/html' not in response.headers.get('Content-Type', ''):
-                return
-
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # 1. Busca formulários (já fazíamos)
-            self.extract_forms(url, response.text)
-
-            # 2. Busca links e parâmetros
-            for link in soup.find_all('a'):
-                href = link.get('href')
-                if href:
-                    full_url = urljoin(url, href)
-                    if self.is_same_domain(full_url):
-                        # Se a URL tem '?', ela tem parâmetros para atacar
-                        if "?" in full_url and full_url not in [p['url'] for p in self.params_found]:
-                            parsed_url = urlparse(full_url)
-                            params = parse_qs(parsed_url.query)
-                            self.params_found.append({
-                                'url': full_url.split('?')[0],
-                                'params': params
-                            })
-                        
-                        if full_url not in self.visited_urls and full_url not in self.urls_to_visit:
-                            self.urls_to_visit.append(full_url)
-        except:
-            pass
-
-    def extract_forms(self, url, html_content):
-        soup = BeautifulSoup(html_content, 'html.parser')
-        for form in soup.find_all('form'):
-            action = form.get('action')
-            method = form.get('method', 'get').lower()
-            action_url = urljoin(url, action) if action else url
-            inputs = []
-            for input_tag in form.find_all(['input', 'textarea', 'select']):
-                name = input_tag.get('name')
-                if name:
-                    inputs.append({'name': name, 'type': input_tag.get('type', 'text')})
-            
-            form_data = {'page_url': url, 'action_url': action_url, 'method': method, 'inputs': inputs}
-            if form_data not in self.forms_found:
-                self.forms_found.append(form_data)
-
-    def crawl(self, max_pages=5):
-        print(f"[*] Explorando: {self.base_url}")
+    def crawl(self, extra_seeds: list[str] | None = None, authenticated: bool = False) -> CrawlResult:
+        log.info("Crawling %s (max_pages=%s, max_depth=%s)", self.base_url, self.config.max_pages, self.config.max_depth)
+        queue: deque[tuple[str, int]] = deque([(self.base_url, 0)])
+        for seed in extra_seeds or []:
+            if same_origin(self.base_url, seed):
+                queue.append((seed, 0))
         pages = 0
-        while self.urls_to_visit and pages < max_pages:
-            current_url = self.urls_to_visit.pop(0)
-            if current_url not in self.visited_urls:
-                self.extract_links_and_params(current_url)
+
+        while queue and pages < self.config.max_pages:
+            current, depth = queue.popleft()
+            visit_key = url_without_query(current)
+            if visit_key in self.visited:
+                continue
+            self.visited.add(visit_key)
+
+            response = self.session.get(current)
+            if response is None:
+                continue
+
+            if pages == 0:
+                self.seed_html = response.text or ""
+                self.seed_headers = {k: v for k, v in response.headers.items()}
+
+            content_type = response.headers.get("Content-Type", "")
+            if "text/html" not in content_type and "application/xhtml" not in content_type:
                 pages += 1
-        return self.visited_urls
+                continue
+
+            html = response.text or ""
+            self._extract_forms(current, html)
+            self._extract_query_params(response.url)
+
+            if depth < self.config.max_depth:
+                for link in self._extract_links(current, html):
+                    link_key = url_without_query(link)
+                    if link_key not in self.visited:
+                        queue.append((link, depth + 1))
+
+            pages += 1
+
+        return CrawlResult(
+            base_url=self.base_url,
+            visited_urls=sorted(self.visited),
+            forms=list(self.forms),
+            params=list(self.params),
+            seed_html=self.seed_html,
+            seed_headers=self.seed_headers,
+            authenticated=authenticated,
+        )
+
+    def _extract_links(self, page_url: str, html: str) -> list[str]:
+        soup = BeautifulSoup(html, "html.parser")
+        found: list[str] = []
+        for tag in soup.find_all(["a", "link"]):
+            href = tag.get("href")
+            if not href:
+                continue
+            full = urljoin(page_url, href)
+            if not same_origin(self.base_url, full):
+                continue
+            if urlparse(full).scheme not in {"http", "https"}:
+                continue
+            found.append(normalize_url(full))
+            if "?" in full:
+                self._extract_query_params(full)
+        for tag in soup.find_all(["form"]):
+            action = tag.get("action")
+            if action:
+                full = urljoin(page_url, action)
+                if same_origin(self.base_url, full):
+                    found.append(url_without_query(full))
+        return found
+
+    def _extract_forms(self, page_url: str, html: str) -> None:
+        soup = BeautifulSoup(html, "html.parser")
+        for form in soup.find_all("form"):
+            action = form.get("action")
+            method = (form.get("method") or "get").lower()
+            action_url = urljoin(page_url, action) if action else page_url
+            if not same_origin(self.base_url, action_url):
+                continue
+            inputs: list[dict[str, str]] = []
+            for input_tag in form.find_all(["input", "textarea", "select"]):
+                name = input_tag.get("name")
+                if not name:
+                    continue
+                inputs.append(
+                    {
+                        "name": name,
+                        "type": (input_tag.get("type") or "text").lower(),
+                    }
+                )
+            key = f"{action_url}|{method}|{','.join(sorted(i['name'] for i in inputs))}"
+            if key in self._form_keys:
+                continue
+            self._form_keys.add(key)
+            self.forms.append(
+                FormTarget(
+                    page_url=page_url,
+                    action_url=url_without_query(action_url),
+                    method=method,
+                    inputs=inputs,
+                )
+            )
+
+    def _extract_query_params(self, url: str) -> None:
+        parsed = urlparse(url)
+        if not parsed.query:
+            return
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        if not params:
+            return
+        base = url_without_query(url)
+        key = f"{base}|{','.join(sorted(params))}"
+        if key in self._param_keys:
+            return
+        self._param_keys.add(key)
+        self.params.append(ParamTarget(url=base, params=params))

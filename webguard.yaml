@@ -1,0 +1,46 @@
+# WebGuard local configuration
+# Override with flags or WEBGUARD_* environment variables where applicable.
+
+max_pages: 5
+max_depth: 2
+timeout: 5
+rate_limit_rps: 8.0
+# Limites para não explodir o tempo em sites grandes
+max_fuzz_params: 8
+max_fuzz_forms: 4
+max_payloads: 2
+user_agent: "WebGuard/1.0 (+local authorized scanner)"
+
+# Empty = only the target host is allowed (recommended).
+allowlist_hosts: []
+
+checks:
+  enabled:
+    - security_headers
+    - cookie_flags
+    - tech_detect
+    - xss_reflected
+    - sqli_error
+    - open_redirect
+    - cors_misconfig
+    - sensitive_paths
+    - csrf_heuristic
+
+# Optional authenticated scanning (authorized targets only).
+# Prefer CLI flags / env vars for secrets: WEBGUARD_TARGET_USER, WEBGUARD_TARGET_PASS,
+# WEBGUARD_TARGET_COOKIE, WEBGUARD_TARGET_AUTH_HEADER
+auth:
+  login_url: null
+  username: null
+  password: null
+  username_field: username
+  password_field: password
+  success_marker: null
+  cookie: null
+  authorization: null
+  seed_paths: []
+
+server:
+  host: "127.0.0.1"
+  port: 5000
+  debug: false

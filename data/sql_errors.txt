@@ -1,0 +1,19 @@
+# Case-insensitive SQL error signatures
+sql syntax
+mysql_fetch
+mysql_num_rows
+mysqli_
+pg_query
+postgresql
+sqlite3.operationalerror
+sqlite3.error
+unclosed quotation mark
+odbc sql server driver
+ora-01756
+ora-00933
+syntax error
+you have an error in your sql
+warning: mysql
+sqlstate
+jedisyntaxerror
+unrecognized token

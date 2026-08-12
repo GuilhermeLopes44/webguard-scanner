@@ -3,200 +3,488 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGuard Dashboard</title>
+    <title>WebGuard — Painel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <style>
-        body { background-color: #121212; font-family: sans-serif; }
-        .card { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 8px; }
-        .table { table-layout: fixed; --bs-table-bg: transparent; }
-        .table th { border-bottom: 2px solid #2d2d2d; color: #888; font-size: 0.75rem; text-transform: uppercase; }
-        .table td { border-bottom: 1px solid #222; vertical-align: middle; color: #ccc; }
-        .tech-badge { font-size: 0.65rem; background: #333; color: #aaa; padding: 2px 6px; border-radius: 4px; margin-right: 4px; border: 1px solid #444; display: inline-block; margin-top: 4px; }
-        .payload-code { background-color: #000; color: #f59e0b; padding: 2px 6px; border-radius: 4px; font-family: monospace; word-break: break-all; }
-        
-        /* Estilos dos cartões do Dashboard */
-        .metric-value { font-size: 2.5rem; font-weight: 700; line-height: 1; margin-bottom: 0.5rem; }
-        .metric-label { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; }
-        .btn-primary { background-color: #2563eb; border: none; }
-        .btn-primary:hover { background-color: #1d4ed8; }
-        .modal-content { background-color: #1e1e1e; border: 1px solid #333; }
+        :root {
+            --bg: #0f1115;
+            --panel: #171a21;
+            --line: #2a2f3a;
+            --text: #e8eaed;
+            --muted: #9aa3b2;
+            --blue: #3b82f6;
+            --red: #ef4444;
+            --orange: #f59e0b;
+            --green: #22c55e;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Segoe UI", system-ui, sans-serif;
+        }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+        }
+        .brand-title { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+        .brand-sub { color: var(--muted); font-size: 0.9rem; }
+        .metric {
+            padding: 1.1rem 1rem;
+            text-align: center;
+            height: 100%;
+        }
+        .metric .n { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+        .metric .l { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.35rem; }
+        .metric.warn .n { color: var(--orange); }
+        .metric.danger .n { color: var(--red); }
+        .metric.ok .n { color: var(--green); }
+        .metric.info .n { color: var(--blue); }
+        .btn-scan {
+            background: var(--blue);
+            border: none;
+            font-weight: 600;
+            min-width: 120px;
+        }
+        .btn-scan:hover { background: #2563eb; }
+        .form-control, .form-select {
+            background: #0f131a;
+            border-color: var(--line);
+            color: var(--text);
+        }
+        .form-control:focus, .form-select:focus {
+            background: #0f131a;
+            border-color: var(--blue);
+            color: var(--text);
+            box-shadow: none;
+        }
+        .hint { color: var(--muted); font-size: 0.82rem; }
+        details summary { cursor: pointer; color: var(--muted); }
+        .table { --bs-table-bg: transparent; margin: 0; }
+        .table th {
+            color: var(--muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border-bottom: 1px solid var(--line);
+        }
+        .table td {
+            border-bottom: 1px solid #222833;
+            vertical-align: top;
+            color: #d1d5db;
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+        .pill-crit { color: #fecaca; background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.4); }
+        .pill-high { color: #fecaca; background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.35); }
+        .pill-med { color: #fde68a; background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.35); }
+        .pill-low { color: #bfdbfe; background: rgba(59,130,246,.14); border-color: rgba(59,130,246,.35); }
+        .pill-info { color: #d1d5db; background: rgba(107,114,128,.2); border-color: rgba(107,114,128,.35); }
+        .pill-ok { color: #bbf7d0; background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.35); }
+        .pill-run { color: #bfdbfe; background: rgba(59,130,246,.14); border-color: rgba(59,130,246,.35); }
+        .tech-badge {
+            font-size: 0.65rem;
+            background: #232833;
+            color: #aeb6c2;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #343b49;
+            margin: 2px 4px 0 0;
+            display: inline-block;
+        }
+        .fail-preview {
+            margin-top: 0.55rem;
+            padding: 0.55rem 0.7rem;
+            border-left: 3px solid var(--red);
+            background: rgba(239,68,68,.06);
+            border-radius: 0 6px 6px 0;
+            font-size: 0.8rem;
+        }
+        .fail-preview .item { color: #f3f4f6; margin-bottom: 0.2rem; }
+        .fail-preview .item:last-child { margin-bottom: 0; }
+        .fail-preview .sevtag { font-weight: 700; margin-right: 0.35rem; }
+        .empty {
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            color: var(--muted);
+        }
+        .empty h3 { color: var(--text); font-size: 1.05rem; margin-bottom: 0.4rem; }
+        .modal-content { background: var(--panel); border: 1px solid var(--line); }
+        .finding {
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--line);
+        }
+        .finding.critical, .finding.high { border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.08); }
+        .finding.medium { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.08); }
+        .finding.low { border-color: rgba(59,130,246,.35); background: rgba(59,130,246,.07); }
+        .finding.info { border-color: rgba(107,114,128,.35); background: rgba(107,114,128,.08); }
+        .evidence {
+            display: inline-block;
+            background: #0a0c10;
+            color: #fbbf24;
+            font-family: Consolas, monospace;
+            font-size: 0.78rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .chart-box { height: 140px; padding: 0.75rem; }
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-5" style="max-width: 950px;">
-        
-        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-dark">
-            <div>
-                <h2 class="mb-0 fw-bold text-light fs-4">🛡️ WebGuard</h2>
-                <span class="text-secondary" style="font-size: 0.85rem;">DAST & Analista de Conformidade</span>
+<div class="wrap">
+    <div class="d-flex justify-content-between align-items-end mb-4 pb-3" style="border-bottom: 1px solid var(--line);">
+        <div>
+            <div class="brand-title">WebGuard</div>
+            <div class="brand-sub">Scanner local de vulnerabilidades web — use apenas em alvos autorizados</div>
+        </div>
+        <div id="jobStatus" class="hint"></div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-2">
+            <div class="panel metric info">
+                <div class="n">{{ stats.total_scans }}</div>
+                <div class="l">Varreduras</div>
             </div>
         </div>
-
-        <div class="row mb-4 g-3">
-            <div class="col-md-4">
-                <div class="card shadow-none h-100 p-4 d-flex flex-column justify-content-center text-center">
-                    <div class="metric-value text-primary">{{ stats.total_scans }}</div>
-                    <div class="metric-label">Scans Realizados</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card shadow-none h-100 p-4 d-flex flex-column justify-content-center text-center">
-                    <div class="metric-value text-danger">{{ stats.total_vulns }}</div>
-                    <div class="metric-label">Falhas Detectadas</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card shadow-none p-3 d-flex justify-content-center align-items-center" style="height: 140px;">
-                    <canvas id="vulnChart"></canvas>
-                </div>
+        <div class="col-6 col-md-2">
+            <div class="panel metric {% if stats.total_vulns %}danger{% else %}ok{% endif %}">
+                <div class="n">{{ stats.total_vulns }}</div>
+                <div class="l">Falhas totais</div>
             </div>
         </div>
-
-        <div class="card mb-5 shadow-none border-secondary border-opacity-50">
-            <div class="card-body p-4">
-                <form id="scanForm" action="/scan" method="POST" class="d-flex align-items-center gap-3">
-                    <input type="url" class="form-control bg-dark border-secondary text-light shadow-none" name="target_url" placeholder="Digite a URL alvo (ex: http://testphp.vulnweb.com/)" required>
-                    <button type="submit" id="btnScan" class="btn btn-primary px-4 d-flex align-items-center gap-2">
-                        <span id="btnText">Escanear</span>
-                        <div id="spinner" class="spinner-border spinner-border-sm d-none"></div>
-                    </button>
-                </form>
+        <div class="col-6 col-md-2">
+            <div class="panel metric danger">
+                <div class="n">{{ stats.critical }}</div>
+                <div class="l">Críticas</div>
             </div>
         </div>
-
-        <div class="card shadow-none">
-            <div class="card-body p-0">
-                <table class="table table-hover mb-0 align-middle">
-                    <thead>
-                        <tr>
-                            <th class="ps-4" style="width: 8%">ID</th>
-                            <th style="width: 45%">Alvo / Tecnologias</th>
-                            <th style="width: 20%">Data</th>
-                            <th style="width: 15%">Status</th>
-                            <th class="pe-4 text-end" style="width: 12%">Ação</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for scan in scans %}
-                        <tr>
-                            <td class="ps-4 text-secondary">#{{ scan.id }}</td>
-                            <td>
-                                <div class="text-truncate text-light fw-medium mb-1" title="{{ scan.target }}">{{ scan.target }}</div>
-                                <div class="d-flex flex-wrap">
-                                    {% for tech in scan.techs %}
-                                        <span class="tech-badge">{{ tech }}</span>
-                                    {% endfor %}
-                                </div>
-                            </td>
-                            <td class="text-secondary" style="font-size: 0.85rem;">{{ scan.date }}</td>
-                            <td>
-                                {% if scan.total > 0 %}
-                                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50">⚠️ {{ scan.total }} Falhas</span>
-                                {% else %}
-                                    <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50">✓ Seguro</span>
-                                {% endif %}
-                            </td>
-                            <td class="pe-4 text-end">
-                                <button class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="modal" data-bs-target="#modal{{ scan.id }}">Detalhes &rarr;</button>
-                            </td>
-                        </tr>
-
-                        <div class="modal fade" id="modal{{ scan.id }}" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                                <div class="modal-content">
-                                    <div class="modal-header border-secondary">
-                                        <h5 class="modal-title fs-6 text-light fw-bold">Relatório Scan #{{ scan.id }}</h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        {% if scan.total > 0 %}
-                                            {% for vuln in scan.details %}
-                                                <div class="border border-danger border-opacity-25 rounded p-3 mb-3" style="background-color: rgba(220, 53, 69, 0.05);">
-                                                    <div class="fw-bold text-danger mb-2">{{ vuln.tipo }}</div>
-                                                    <div class="text-secondary" style="font-size: 0.85rem;">
-                                                        <span class="text-light">URL:</span> <span class="text-break">{{ vuln.url }}</span><br>
-                                                        <span class="text-light">Método:</span> <span class="text-uppercase">{{ vuln.metodo }}</span><br>
-                                                        <span class="text-light">Payload:</span> <span class="payload-code">{{ vuln.payload_utilizado }}</span>
-                                                    </div>
-                                                </div>
-                                            {% endfor %}
-                                        {% else %}
-                                            <div class="alert alert-success bg-success bg-opacity-10 border-success border-opacity-25 text-success small mb-0">
-                                                Nenhuma falha de segurança detectada com os testes atuais neste alvo.
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                    <div class="modal-footer border-secondary bg-dark">
-                                        <a href="/export/{{ scan.id }}" class="btn btn-sm btn-success fw-bold text-light px-3">📥 Baixar CSV</a>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="col-6 col-md-2">
+            <div class="panel metric danger">
+                <div class="n">{{ stats.high }}</div>
+                <div class="l">Altas</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="panel metric warn">
+                <div class="n">{{ stats.medium }}</div>
+                <div class="l">Médias</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="panel metric info">
+                <div class="n">{{ stats.low }}</div>
+                <div class="l">Baixas / Info</div>
             </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <script>
-        document.getElementById('scanForm').addEventListener('submit', function() {
-            document.getElementById('btnScan').disabled = true;
-            document.getElementById('btnText').innerText = "Processando...";
-            document.getElementById('spinner').classList.remove('d-none');
-        });
-    </script>
 
-    <script>
-        const labels = {{ stats.chart_labels | safe }};
-        const data = {{ stats.chart_data | safe }};
-        
-        if(data.length > 0) {
-            const ctx = document.getElementById('vulnChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: [
-                            '#ef4444', // Vermelho para SQLi ou alto risco
-                            '#f59e0b', // Laranja para XSS
-                            '#3b82f6', // Azul para Headers/Configuração
-                            '#8b5cf6'  // Roxo para Outros
-                        ],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: { color: '#ccc', font: { size: 10 } }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return ' ' + context.label + ': ' + context.raw + ' falhas';
-                                }
-                            }
-                        }
-                    },
-                    cutout: '70%'
-                }
-            });
-        } else {
-            // Se o banco estiver vazio e não houver dados, oculta o canvas
-            document.getElementById('vulnChart').style.display = 'none';
+    {% if stats.total_vulns > 0 %}
+    <div class="panel chart-box mb-4">
+        <canvas id="vulnChart"></canvas>
+    </div>
+    {% endif %}
+
+    <div class="panel p-4 mb-4">
+        <div class="section-title">Nova varredura</div>
+        <form id="scanForm" action="/scan" method="POST" class="d-flex flex-column gap-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <input type="url" class="form-control" name="target_url"
+                       placeholder="URL do alvo autorizado (ex: http://127.0.0.1:8765/)" required style="flex: 1; min-width: 260px;">
+                {% if auth_required %}
+                <input type="password" class="form-control" name="token" placeholder="Token do painel" required style="max-width: 180px;">
+                {% endif %}
+                <button type="submit" id="btnScan" class="btn btn-primary btn-scan d-flex align-items-center justify-content-center gap-2">
+                    <span id="btnText">Escanear</span>
+                    <div id="spinner" class="spinner-border spinner-border-sm d-none"></div>
+                </button>
+            </div>
+            <div class="hint">Só escaneie sistemas que você possui ou tem permissão escrita para testar.</div>
+            <details>
+                <summary>Autenticação no alvo (opcional)</summary>
+                <div class="row g-2 mt-2">
+                    <div class="col-md-6"><input class="form-control form-control-sm" name="login_url" placeholder="URL de login (ex: /auth/login)"></div>
+                    <div class="col-md-3"><input class="form-control form-control-sm" name="username" placeholder="Usuário"></div>
+                    <div class="col-md-3"><input type="password" class="form-control form-control-sm" name="password" placeholder="Senha"></div>
+                    <div class="col-md-3"><input class="form-control form-control-sm" name="username_field" value="username" placeholder="Campo usuário"></div>
+                    <div class="col-md-3"><input class="form-control form-control-sm" name="password_field" value="password" placeholder="Campo senha"></div>
+                    <div class="col-md-6"><input class="form-control form-control-sm" name="success_marker" placeholder="Texto de sucesso no login (opcional)"></div>
+                    <div class="col-md-6"><input class="form-control form-control-sm" name="cookie" placeholder="Cookie de sessão (ex: session=...)"></div>
+                    <div class="col-md-6"><input class="form-control form-control-sm" name="auth_header" placeholder="Cabeçalho Authorization (Bearer ...)"></div>
+                    <div class="col-12"><input class="form-control form-control-sm" name="seed_paths" placeholder="Páginas após login (ex: /dashboard,/private)"></div>
+                </div>
+            </details>
+        </form>
+        <div class="progress mt-3 d-none" id="scanProgressWrap" style="height: 7px;">
+            <div id="scanProgress" class="progress-bar" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <div class="section-title mb-0">Histórico e falhas encontradas</div>
+        <div class="d-flex align-items-center gap-2">
+            <label class="hint mb-0" for="sevFilter">Filtrar por severidade</label>
+            <select id="sevFilter" class="form-select form-select-sm" style="width: auto;">
+                <option value="all">Todas</option>
+                <option value="critical">Crítica</option>
+                <option value="high">Alta</option>
+                <option value="medium">Média</option>
+                <option value="low">Baixa</option>
+                <option value="info">Informativa</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="panel">
+        {% if scans %}
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-3" style="width: 7%">ID</th>
+                        <th style="width: 38%">Alvo</th>
+                        <th style="width: 16%">Data</th>
+                        <th style="width: 24%">Falhas</th>
+                        <th class="pe-3 text-end" style="width: 15%">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for scan in scans %}
+                    <tr data-scan-id="{{ scan.id }}" data-max-sev="{{ scan.max_sev }}">
+                        <td class="ps-3 text-secondary">#{{ scan.id }}</td>
+                        <td>
+                            <div class="text-light fw-semibold text-break" title="{{ scan.target }}">{{ scan.target }}</div>
+                            <div class="mt-1 d-flex flex-wrap align-items-center gap-1">
+                                {% if scan.authenticated %}
+                                    <span class="pill pill-ok">Autenticado</span>
+                                {% else %}
+                                    <span class="pill pill-info">Sem login</span>
+                                {% endif %}
+                                {% if scan.status in ['queued', 'running'] %}
+                                    <span class="pill pill-run">{{ scan.status_pt }} {{ scan.progress }}%</span>
+                                {% elif scan.status == 'failed' %}
+                                    <span class="pill pill-med">Falhou</span>
+                                {% endif %}
+                                {% for tech in scan.techs %}
+                                    <span class="tech-badge">{{ tech }}</span>
+                                {% endfor %}
+                            </div>
+                            {% if scan.top_findings %}
+                            <div class="fail-preview">
+                                {% for f in scan.top_findings %}
+                                <div class="item">
+                                    <span class="sevtag">
+                                        {% if f.severity == 'critical' %}CRÍTICA
+                                        {% elif f.severity == 'high' %}ALTA
+                                        {% elif f.severity == 'medium' %}MÉDIA
+                                        {% elif f.severity == 'low' %}BAIXA
+                                        {% else %}INFO{% endif %}
+                                    </span>
+                                    {{ f.title }}
+                                </div>
+                                {% endfor %}
+                                {% if scan.total > 3 %}
+                                <div class="hint mt-1">+ {{ scan.total - 3 }} outra(s) falha(s)</div>
+                                {% endif %}
+                            </div>
+                            {% elif scan.status == 'done' %}
+                            <div class="hint mt-2">Nenhuma falha detectada nesta varredura.</div>
+                            {% endif %}
+                        </td>
+                        <td class="hint">{{ scan.date }}</td>
+                        <td>
+                            {% if scan.status in ['queued', 'running'] %}
+                                <span class="pill pill-run">Processando…</span>
+                            {% elif scan.total > 0 %}
+                                <div class="d-flex flex-wrap gap-1">
+                                    <span class="pill pill-crit">{{ scan.total }} falha(s)</span>
+                                    {% if scan.sev_counts.critical %}<span class="pill pill-crit">{{ scan.sev_counts.critical }} crítica(s)</span>{% endif %}
+                                    {% if scan.sev_counts.high %}<span class="pill pill-high">{{ scan.sev_counts.high }} alta(s)</span>{% endif %}
+                                    {% if scan.sev_counts.medium %}<span class="pill pill-med">{{ scan.sev_counts.medium }} média(s)</span>{% endif %}
+                                    {% if scan.sev_counts.low %}<span class="pill pill-low">{{ scan.sev_counts.low }} baixa(s)</span>{% endif %}
+                                </div>
+                            {% else %}
+                                <span class="pill pill-ok">Sem falhas</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-3 text-end">
+                            <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#modal{{ scan.id }}">
+                                Ver falhas
+                            </button>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="modal{{ scan.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                            <div class="modal-content">
+                                <div class="modal-header border-secondary">
+                                    <div>
+                                        <h5 class="modal-title fs-6 fw-bold mb-1">Varredura #{{ scan.id }} — falhas</h5>
+                                        <div class="hint">{{ scan.target }}</div>
+                                    </div>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    {% if scan.findings %}
+                                        <div class="d-flex flex-wrap gap-1 mb-3">
+                                            <span class="pill pill-crit">{{ scan.total }} no total</span>
+                                            {% if scan.sev_counts.critical %}<span class="pill pill-crit">{{ scan.sev_counts.critical }} crítica(s)</span>{% endif %}
+                                            {% if scan.sev_counts.high %}<span class="pill pill-high">{{ scan.sev_counts.high }} alta(s)</span>{% endif %}
+                                            {% if scan.sev_counts.medium %}<span class="pill pill-med">{{ scan.sev_counts.medium }} média(s)</span>{% endif %}
+                                            {% if scan.sev_counts.low %}<span class="pill pill-low">{{ scan.sev_counts.low }} baixa(s)</span>{% endif %}
+                                            {% if scan.sev_counts.info %}<span class="pill pill-info">{{ scan.sev_counts.info }} info</span>{% endif %}
+                                        </div>
+                                        {% for vuln in scan.findings %}
+                                        <div class="finding {{ vuln.severity|default('info') }}">
+                                            <div class="d-flex justify-content-between gap-2 mb-2 flex-wrap">
+                                                <div class="fw-bold">{{ vuln.title }}</div>
+                                                <span class="pill {% if vuln.severity == 'critical' %}pill-crit{% elif vuln.severity == 'high' %}pill-high{% elif vuln.severity == 'medium' %}pill-med{% elif vuln.severity == 'low' %}pill-low{% else %}pill-info{% endif %}">
+                                                    {{ vuln.severity_pt }} · confiança {{ vuln.confidence_pt }}
+                                                </span>
+                                            </div>
+                                            <div class="small">
+                                                <div><strong>Tipo:</strong> {{ vuln.check_pt }}</div>
+                                                <div><strong>URL:</strong> <span class="text-break">{{ vuln.url }}</span></div>
+                                                <div><strong>Método:</strong> {{ vuln.method }}{% if vuln.param %} · parâmetro <code>{{ vuln.param }}</code>{% endif %}</div>
+                                                <div class="mt-1"><strong>Evidência:</strong> <span class="evidence">{{ vuln.evidence }}</span></div>
+                                                {% if vuln.remediation %}
+                                                <div class="mt-2 hint"><strong>Como corrigir:</strong> {{ vuln.remediation }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="alert alert-success bg-success bg-opacity-10 border-success border-opacity-25 text-success small mb-0">
+                                            Nenhuma falha detectada com os testes atuais neste alvo.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="modal-footer border-secondary gap-2 flex-wrap">
+                                    <a href="/export/{{ scan.id }}.html" class="btn btn-sm btn-warning export-link">Relatório executivo</a>
+                                    <a href="/export/{{ scan.id }}.md" class="btn btn-sm btn-outline-light export-link">Markdown</a>
+                                    <a href="/export/{{ scan.id }}.csv" class="btn btn-sm btn-outline-success export-link">CSV</a>
+                                    <a href="/export/{{ scan.id }}.json" class="btn btn-sm btn-outline-secondary export-link">JSON</a>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty">
+            <h3>Nenhuma varredura ainda</h3>
+            <p class="mb-0">Cole a URL de um alvo autorizado acima e clique em <strong>Escanear</strong>. As falhas encontradas aparecerão aqui com severidade clara.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const activeScan = params.get('active_scan');
+    const authRequired = {{ 'true' if auth_required else 'false' }};
+    const tokenInput = document.querySelector('input[name="token"]');
+
+    document.getElementById('scanForm').addEventListener('submit', function () {
+        document.getElementById('btnScan').disabled = true;
+        document.getElementById('btnText').innerText = "Na fila…";
+        document.getElementById('spinner').classList.remove('d-none');
+    });
+
+    document.getElementById('sevFilter').addEventListener('change', function (e) {
+        const val = e.target.value;
+        document.querySelectorAll('tbody tr[data-scan-id]').forEach(row => {
+            const sev = row.getAttribute('data-max-sev');
+            row.style.display = (val === 'all' || sev === val) ? '' : 'none';
+        });
+    });
+
+    document.querySelectorAll('.export-link').forEach(link => {
+        link.addEventListener('click', function (ev) {
+            if (!authRequired || !tokenInput || !tokenInput.value) return;
+            ev.preventDefault();
+            const url = new URL(link.href, window.location.origin);
+            url.searchParams.set('token', tokenInput.value);
+            window.location.href = url.toString();
+        });
+    });
+
+    async function pollScan(id) {
+        const wrap = document.getElementById('scanProgressWrap');
+        const bar = document.getElementById('scanProgress');
+        const statusEl = document.getElementById('jobStatus');
+        wrap.classList.remove('d-none');
+        const headers = {};
+        if (authRequired && tokenInput && tokenInput.value) {
+            headers['X-WebGuard-Token'] = tokenInput.value;
         }
-    </script>
+        const statusMap = { queued: 'Na fila', running: 'Em andamento', done: 'Concluído', failed: 'Falhou' };
+        const timer = setInterval(async () => {
+            try {
+                const res = await fetch('/api/scans/' + id, { headers });
+                if (!res.ok) return;
+                const data = await res.json();
+                bar.style.width = (data.progress || 0) + '%';
+                const st = statusMap[data.status] || data.status;
+                statusEl.textContent = `Varredura #${id}: ${st} — ${data.progress_message || ''}`;
+                if (data.status === 'done' || data.status === 'failed') {
+                    clearInterval(timer);
+                    window.location.href = '/';
+                }
+            } catch (err) { /* ignore */ }
+        }, 1200);
+    }
+
+    if (activeScan) pollScan(activeScan);
+
+    const labels = {{ stats.chart_labels | safe }};
+    const data = {{ stats.chart_data | safe }};
+    const canvas = document.getElementById('vulnChart');
+    if (canvas && data.length > 0) {
+        new Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data,
+                    backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#64748b', '#a855f7', '#14b8a6'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { color: '#c5cad3', font: { size: 11 } } },
+                    title: { display: true, text: 'Tipos de falha', color: '#e8eaed', font: { size: 13 } }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+</script>
 </body>
 </html>
